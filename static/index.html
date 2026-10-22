@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TRAE 研发流程 Demo · 模拟 Tone 操作台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F5F3EC; --grid:#EAE6D8; --card:#FFFFFF;
+  --ink:#191D23; --sub:#7A756A; --line:#E6E2D4;
+  --blue:#2B4BD8; --blue-deep:#1E3AAF; --blue-bg:#EEF2FF;
+  --amber:#D97706; --amber-bg:#FDF3E3;
+  --ok:#1E9E6A; --ok-bg:#E7F6EF;
+  --fail:#D64545; --fail-bg:#FCEBEB;
+  --radius:16px;
+  --shadow:0 1px 2px rgba(25,29,35,.04),0 8px 24px -12px rgba(25,29,35,.10);
+  --font-display:'Sora',-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+  --font-body:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:var(--font-body);color:var(--ink);
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px;
+  min-height:100vh;
+}
+/* ---------- 顶栏 ---------- */
+header{
+  position:sticky;top:0;z-index:20;
+  display:flex;align-items:center;gap:14px;
+  padding:14px 28px;
+  background:rgba(245,243,236,.85);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.logo{display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--ink);border-radius:10px;flex:none;}
+.logo svg{display:block;}
+.h-title{font-family:var(--font-display);font-size:16px;font-weight:700;letter-spacing:.2px;}
+.h-sub{font-size:11.5px;color:var(--sub);margin-top:1px;}
+.pill{margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--sub);transition:all .3s;}
+.pill-dot{width:8px;height:8px;border-radius:50%;background:#B9B4A4;flex:none;}
+.pill.running{color:var(--amber);border-color:#F0D9B5;background:var(--amber-bg);}
+.pill.running .pill-dot{background:var(--amber);animation:pulse 1.1s infinite;}
+.pill.done{color:var(--ok);border-color:#BFE6D4;background:var(--ok-bg);}
+.pill.done .pill-dot{background:var(--ok);}
+.pill.failed{color:var(--fail);border-color:#F2C9C9;background:var(--fail-bg);}
+.pill.failed .pill-dot{background:var(--fail);}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,119,6,.45);}70%{box-shadow:0 0 0 7px rgba(217,119,6,0);}100%{box-shadow:0 0 0 0 rgba(217,119,6,0);}}
+/* ---------- 布局 ---------- */
+main{max-width:1460px;margin:0 auto;padding:26px 28px 40px;display:grid;grid-template-columns:390px minmax(0,1fr);gap:20px;align-items:start;}
+.rail{display:flex;flex-direction:column;gap:16px;}
+.stage-wrap{display:flex;flex-direction:column;gap:16px;min-width:0;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;animation:rise .55s cubic-bezier(.2,.7,.3,1) both;}
+.rail .card:nth-child(2){animation-delay:.08s;}
+.stage-wrap .card:nth-child(1){animation-delay:.12s;}
+.stage-wrap .card:nth-child(2){animation-delay:.18s;}
+@keyframes rise{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.card-head h2{font-family:var(--font-display);font-size:14.5px;font-weight:600;letter-spacing:.2px;}
+.chip{font-size:10.5px;font-weight:600;letter-spacing:.4px;padding:3px 9px;border-radius:999px;background:var(--amber-bg);color:var(--amber);border:1px solid #F0DDBE;}
+.chip.grey{background:#F4F2EA;color:var(--sub);border-color:var(--line);}
+/* ---------- 需求输入 ---------- */
+.composer{border-top:3px solid var(--blue);}
+.field-label{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--sub);margin-bottom:8px;}
+.field-label b{color:var(--ink);font-weight:600;font-size:12.5px;}
+#charCount{font-family:var(--font-mono);font-size:11px;}
+textarea{
+  width:100%;border:1px solid var(--line);border-radius:12px;background:#FCFBF7;
+  padding:12px 14px;font:14px/1.7 var(--font-body);color:var(--ink);resize:vertical;min-height:118px;
+  transition:border-color .2s,box-shadow .2s,background .2s;
+}
+textarea::placeholder{color:#A8A396;}
+textarea:focus{outline:none;border-color:var(--blue);background:#fff;box-shadow:0 0 0 4px rgba(43,75,216,.10);}
+.composer-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
+.link-btn{border:none;background:none;color:var(--blue);font-size:12px;cursor:pointer;padding:2px 0;border-bottom:1px dashed transparent;transition:border-color .2s;}
+.link-btn:hover{border-bottom-color:var(--blue);}
+.attach-row{display:flex;align-items:center;gap:10px;margin:12px 0 14px;flex-wrap:wrap;}
+.attach-btn{border:1.5px dashed var(--line);background:#FCFBF7;color:var(--sub);border-radius:10px;padding:8px 14px;font-size:12.5px;cursor:pointer;transition:all .2s;}
+.attach-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg);}
+.attach-chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:5px 10px 5px 5px;background:#fff;font-size:12px;}
+.attach-chip img{width:34px;height:34px;object-fit:cover;border-radius:7px;border:1px solid var(--line);}
+.attach-chip .nm{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub);}
+.attach-chip button{border:none;background:none;color:var(--sub);font-size:15px;cursor:pointer;line-height:1;padding:2px;}
+.attach-chip button:hover{color:var(--fail);}
+.cta{
+  width:100%;border:none;border-radius:12px;padding:14px;
+  background:var(--blue);color:#fff;font:600 15px var(--font-display);letter-spacing:.5px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:background .2s,transform .15s,box-shadow .2s;
+  box-shadow:0 6px 16px -6px rgba(43,75,216,.45);
+}
+.cta:hover:not(:disabled){background:var(--blue-deep);transform:translateY(-1px);box-shadow:0 10px 20px -6px rgba(43,75,216,.5);}
+.cta:active:not(:disabled){transform:translateY(0);}
+.cta:disabled{background:#B9C4EE;cursor:not-allowed;box-shadow:none;}
+.cta .arr{transition:transform .2s;}
+.cta:hover:not(:disabled) .arr{transform:translateX(3px);}
+#meta{margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--sub);word-break:break-all;white-space:pre-wrap;min-height:14px;}
+/* ---------- 历史需求 ---------- */
+#history{display:flex;flex-direction:column;gap:8px;max-height:320px;overflow:auto;margin:-2px;}
+.rec{
+  display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--line);
+  border-radius:12px;cursor:pointer;background:#FCFBF7;transition:all .18s;position:relative;
+}
+.rec:hover{border-color:var(--blue);background:var(--blue-bg);transform:translateX(2px);}
+.rec.active{border-color:var(--blue);background:var(--blue-bg);box-shadow:inset 3px 0 0 var(--blue);}
+.rec-dot{width:9px;height:9px;border-radius:50%;margin-top:6px;flex:none;}
+.rec-dot.done{background:var(--ok);}
+.rec-dot.failed{background:var(--fail);}
+.rec-main{flex:1;min-width:0;}
+.rec-req{font-size:13px;font-weight:500;line-height:1.5;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.rec-meta{display:flex;gap:10px;margin-top:5px;font-size:11px;color:var(--sub);flex-wrap:wrap;}
+.rec-meta .mono{font-family:var(--font-mono);}
+.rec-arrow{color:var(--blue);font-size:13px;margin-top:4px;opacity:0;transition:opacity .18s;flex:none;}
+.rec:hover .rec-arrow,.rec.active .rec-arrow{opacity:1;}
+.empty-note{font-size:12px;color:var(--sub);padding:6px 2px;}
+/* ---------- 历史需求：运行统计环图 ---------- */
+.run-stats{display:flex;align-items:center;gap:14px;padding:8px 2px 12px;margin-bottom:10px;border-bottom:1px dashed var(--line);}
+.run-stats .pie-num{font:600 13px var(--font-display);fill:var(--ink);}
+.run-stats .pie-seg{transition:stroke-dasharray .5s ease,stroke-dashoffset .5s ease;}
+.run-stats-legend{display:flex;flex-direction:column;gap:5px;}
+.rs-item{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:11.5px;color:var(--sub);}
+.rs-item i{width:8px;height:8px;border-radius:3px;flex:none;}
+.rs-item b{color:var(--ink);font-weight:600;min-width:14px;text-align:right;}
+/* ---------- 舞台：流水线 ---------- */
+.stage-head{display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap;}
+.stage-head h2{font-family:var(--font-display);font-size:15px;font-weight:600;}
+.ctx-tag{font-size:10.5px;font-weight:600;letter-spacing:.4px;padding:3px 9px;border-radius:999px;background:var(--ink);color:#F5F3EC;}
+.stage-actions{margin-left:auto;display:flex;gap:8px;}
+.btn-ghost{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:7px 13px;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .18s;}
+.btn-ghost:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg);}
+/* ---------- 阶段进度条（真实：已完成阶段数/总阶段数） ---------- */
+.stepbar{display:flex;align-items:center;gap:12px;margin:0 0 8px;}
+.stepbar .sb-label{font-family:var(--font-mono);font-size:11.5px;color:var(--sub);white-space:nowrap;}
+.stepbar .sb-label b{color:var(--amber);font-weight:600;}
+.sb-track{flex:1;height:6px;background:#F0EDE2;border-radius:4px;overflow:hidden;}
+.sb-fill{height:100%;background:var(--amber);border-radius:4px;transition:width .6s cubic-bezier(.2,.7,.3,1);}
+.timeline{position:relative;padding:4px 0 0;}
+.timeline::before{content:'';position:absolute;left:12px;top:14px;bottom:14px;width:2px;background:var(--line);border-radius:2px;}
+.ph{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:2px 12px;padding:9px 0;position:relative;}
+.ph .dot{
+  grid-row:1 / span 2;width:14px;height:14px;border-radius:50%;margin:3px auto 0;z-index:1;
+  background:#fff;border:3px solid #CFCABB;transition:all .25s;display:flex;align-items:center;justify-content:center;
+}
+.ph .name{font-size:13.5px;font-weight:600;color:#9A958A;transition:color .25s;}
+.ph .time{font-family:var(--font-mono);font-size:11.5px;color:var(--sub);margin-top:2px;white-space:nowrap;}
+.ph .sum{grid-column:2;font-size:12px;color:var(--sub);line-height:1.6;max-height:3.2em;overflow:hidden;}
+.ph.running{background:linear-gradient(90deg,rgba(217,119,6,0) 0%,rgba(217,119,6,.07) 50%,rgba(217,119,6,0) 100%);background-size:200% 100%;animation:sweep 1.7s linear infinite;border-radius:10px;}
+.ph.running .dot{border:2px solid #F0D9B5;border-top-color:var(--amber);background:#fff;animation:spin .85s linear infinite;}
+.ph.running .name{color:var(--amber);}
+.ph.running .time{color:var(--amber);font-weight:500;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes sweep{from{background-position:200% 0;}to{background-position:-200% 0;}}
+.ph.done .dot{border-color:var(--ok);background:var(--ok);animation:pop .35s cubic-bezier(.2,.7,.3,1.4);}
+.ph.done .dot::after{content:'✓';color:#fff;font-size:9px;font-weight:700;}
+.ph.done .name{color:var(--ink);}
+.ph.failed .dot{border-color:var(--fail);background:var(--fail);}
+.ph.failed .dot::after{content:'×';color:#fff;font-size:10px;font-weight:700;}
+.ph.failed .name{color:var(--fail);}
+.ph.ghost .dot{border-style:dashed;border-color:#CFCABB;background:transparent;}
+.ph.ghost .name{color:#B4AFA2;}
+.ph.ghost .sum{color:#C3BFB2;font-style:normal;}
+@keyframes pop{0%{transform:scale(.4);}70%{transform:scale(1.25);}100%{transform:scale(1);}}
+/* ---------- 产物与日志 ---------- */
+.art-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px;}
+.art-head h2{font-family:var(--font-display);font-size:14.5px;font-weight:600;}
+.tabs{position:relative;display:flex;gap:2px;margin-left:auto;background:#F4F2EA;border-radius:10px;padding:3px;}
+.tabs button{
+  border:none;background:transparent;color:var(--sub);font-size:12.5px;font-weight:500;
+  padding:6px 13px;border-radius:8px;cursor:pointer;transition:all .2s;position:relative;z-index:1;white-space:nowrap;
+}
+.tabs button:hover{color:var(--ink);}
+.tabs button.active{background:#fff;color:var(--blue);box-shadow:0 1px 3px rgba(25,29,35,.10);}
+.panel{display:none;}
+.panel.show{display:block;animation:fadein .25s;}
+@keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+pre{
+  background:#FCFBF7;border:1px solid var(--line);border-radius:12px;
+  padding:16px 18px;font:12px/1.75 var(--font-mono);color:#3A3E45;
+  white-space:pre-wrap;word-break:break-word;max-height:460px;overflow:auto;
+}
+/* ---------- 空闲态：阶段导览 ---------- */
+.guide-intro{font-size:12.5px;color:var(--sub);margin-bottom:14px;}
+.guide-intro b{color:var(--ink);}
+.guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.guide-tile{border:1px dashed #D5D0BF;border-radius:12px;padding:13px 14px;background:#FBFAF5;transition:border-color .2s,transform .2s;}
+.guide-tile:hover{border-color:var(--blue);transform:translateY(-1px);}
+.g-top{display:flex;align-items:baseline;gap:8px;margin-bottom:5px;}
+.g-num{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--blue);}
+.g-name{font-size:12.5px;font-weight:600;}
+.g-desc{font-size:11.5px;color:var(--sub);line-height:1.6;margin-bottom:8px;}
+.g-cmd{font-family:var(--font-mono);font-size:10.5px;color:var(--sub);background:#F1EEE3;border:1px solid var(--line);border-radius:6px;padding:2px 7px;}
+/* ---------- 效能度量 ---------- */
+.metrics-card{animation-delay:.24s;}
+.metrics-body{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:24px;}
+.bars-title,.runs-title{font-size:11.5px;color:var(--sub);margin-bottom:10px;font-weight:500;}
+.bar-row{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:12px;}
+.bar-row .nm{flex:none;width:118px;color:var(--sub);}
+.bar-track{flex:1;height:10px;background:#F0EDE2;border-radius:6px;overflow:hidden;}
+.bar-fill{height:100%;background:var(--blue);border-radius:6px;transition:width .6s cubic-bezier(.2,.7,.3,1);}
+.bar-fill.top{background:var(--amber);}
+.bar-row .vl{flex:none;width:64px;text-align:right;font-family:var(--font-mono);font-size:11.5px;color:var(--sub);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;}
+th{color:var(--sub);font-weight:500;font-size:11.5px;}
+td.mono{font-family:var(--font-mono);font-size:11px;}
+.runs{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:0 8px;}
+/* ---------- toast 提示 ---------- */
+.toast{position:fixed;top:72px;left:50%;transform:translateX(-50%) translateY(-16px);background:var(--ink);color:#F5F3EC;padding:12px 24px;border-radius:12px;font-size:13px;font-weight:500;box-shadow:0 10px 32px rgba(25,29,35,.28);opacity:0;pointer-events:none;transition:all .35s cubic-bezier(.2,.7,.3,1);z-index:100;max-width:560px;text-align:center;line-height:1.6;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast b{color:#7EB89A;}
+@media(max-width:1100px){
+  main{grid-template-columns:1fr;}
+  .metrics-body{grid-template-columns:1fr;}
+  .guide-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M2 9h14" stroke="#F5F3EC" stroke-width="1.6"/>
+      <circle cx="3.5" cy="9" r="2.2" fill="#F5F3EC"/>
+      <circle cx="9" cy="9" r="2.2" fill="#F5F3EC" fill-opacity=".55"/>
+      <circle cx="14.5" cy="9" r="2.2" fill="#F5F3EC"/>
+    </svg>
+  </div>
+  <div>
+    <div class="h-title">TRAE 研发流程 Demo</div>
+    <div class="h-sub">模拟 Tone 操作台 · Trae 真实执行 · Phase 0–7 自动化闭环</div>
+  </div>
+  <div id="badge" class="pill idle"><span class="pill-dot"></span><span id="badgeText">未启动</span></div>
+</header>
+
+<div id="toast" class="toast"></div>
+
+<main>
+  <!-- 左栏：新需求 + 历史需求 -->
+  <div class="rail">
+    <div class="card composer">
+      <div class="card-head"><h2>新需求</h2><span class="chip">唯一人工介入点</span></div>
+      <label class="field-label" for="req"><b>需求描述（Story）</b><span id="charCount">0 / 2000</span></label>
+      <textarea id="req" maxlength="2000" placeholder="用一句话描述需求，例如：为待办 API 新增 /healthz 健康检查接口（返回 {&quot;status&quot;:&quot;ok&quot;}），并补充 pytest 测试…"></textarea>
+      <div class="composer-foot">
+        <button class="link-btn" id="fillDemo" type="button">填入示例需求</button>
+      </div>
+      <div class="attach-row">
+        <button class="attach-btn" id="attachBtn" type="button">＋ 原型图（可选）</button>
+        <input type="file" id="img" accept="image/*" hidden>
+        <div class="attach-chip" id="attachChip" style="display:none;">
+          <img id="preview" alt="原型图预览">
+          <span class="nm" id="attachName"></span>
+          <button id="clearImg" type="button" aria-label="移除原型图">×</button>
+        </div>
+      </div>
+      <button class="cta" id="startBtn"><span>开始流水线</span><span class="arr">→</span></button>
+      <div id="meta"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>历史需求</h2><span class="chip grey">开发记录 · 点击回看</span></div>
+      <div class="run-stats" id="runStats" style="display:none;">
+        <svg id="runStatsPie" viewBox="0 0 42 42" width="66" height="66" aria-label="运行统计"></svg>
+        <div class="run-stats-legend" id="runStatsLegend"></div>
+      </div>
+      <div id="history"><div class="empty-note">暂无记录。每次流水线结束后会自动归档到这里。</div></div>
+    </div>
+  </div>
+
+  <!-- 右栏：流水线舞台 + 产物 -->
+  <div class="stage-wrap">
+    <div class="card">
+      <div class="stage-head">
+        <span class="ctx-tag" id="viewTag">新建需求</span>
+        <h2>自动化研发流水线</h2>
+        <span class="chip grey">Phase 0–7</span>
+        <div class="stage-actions">
+          <button class="btn-ghost" id="resumeBtn" style="display:none;">⏩ 从失败点续跑</button>
+          <button class="btn-ghost" id="retryBtn" style="display:none;">↻ 从头重跑</button>
+          <button class="btn-ghost" id="backLiveBtn" style="display:none;">▶ 当前运行</button>
+          <button class="btn-ghost" id="newReqBtn" style="display:none;">＋ 新建需求</button>
+        </div>
+      </div>
+      <div class="stepbar" id="stepbar" style="display:none;">
+        <span class="sb-label" id="sbLabel"></span>
+        <div class="sb-track"><div class="sb-fill" id="sbFill" style="width:0%"></div></div>
+      </div>
+      <div id="timeline" class="timeline"></div>
+    </div>
+
+    <div class="card">
+      <div class="art-head">
+        <h2>产物与日志</h2>
+        <div class="tabs">
+          <button data-tab="log" class="active">阶段日志</button>
+          <button data-tab="spec">规划文档</button>
+          <button data-tab="cr">AI 代码评审</button>
+          <button data-tab="test">测试结果</button>
+          <button data-tab="deploy">部署</button>
+          <button data-tab="report">汇总报告</button>
+        </div>
+      </div>
+      <div id="panel-log" class="panel show"><pre>（点击「开始流水线」后，这里会实时展示阶段日志）</pre></div>
+      <div id="panel-spec" class="panel"><pre>（规划文档：spec / tasks / checklist）</pre></div>
+      <div id="panel-cr" class="panel"><pre>（AI 代码评审原文）</pre></div>
+      <div id="panel-test" class="panel"><pre>（pytest 输出）</pre></div>
+      <div id="panel-deploy" class="panel"><pre>（部署与健康检查信息）</pre></div>
+      <div id="panel-report" class="panel"><pre>（汇总报告）</pre></div>
+    </div>
+
+    <!-- 效能度量：随右栏流式排布，填补舞台下方空间 -->
+    <div class="card metrics-card">
+      <div class="card-head"><h2>效能度量</h2><span class="chip grey">telemetry</span></div>
+      <div id="metrics" class="metrics-body"><div class="empty-note">流水线运行后展示。</div></div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function(){
+  var badge=document.getElementById('badge'), badgeText=document.getElementById('badgeText');
+  var startBtn=document.getElementById('startBtn');
+  var req=document.getElementById('req'), imgInput=document.getElementById('img');
+  var attachBtn=document.getElementById('attachBtn'), attachChip=document.getElementById('attachChip');
+  var attachName=document.getElementById('attachName'), preview=document.getElementById('preview'), clearImg=document.getElementById('clearImg');
+  var charCount=document.getElementById('charCount'), fillDemo=document.getElementById('fillDemo');
+  var meta=document.getElementById('meta');
+  var viewMode='idle', lastStatus=null, artifactsLoaded=false, archiveStatus='done', activePid=null;
+  var lastTLSig='';
+  var runPhaseStart=null, runPhaseKey='', curPhaseKey=null, artTick=0;
+  var finHandled=false, toastTimer=null;
+
+  var DEMO_REQ='为待办事项 API 新增 /healthz 健康检查接口（返回 {"status":"ok"}），并为该接口补充 pytest 测试；同时让 GET /todos 支持 ?sort=created_at:desc 参数，按创建时间降序返回，并补充对应测试。';
+  var GHOST_PHASES=[
+    {n:'00',name:'前置 · 环境检查与初始化',desc:'校验 traecli、Python 依赖与端口占用，创建本轮独立产物目录',cmd:'init'},
+    {n:'01',name:'P0-1 · 需求理解',desc:'拾取仓库上下文、理解原型图，生成 spec / tasks / checklist 三份规划文档',cmd:'traecli exec -i 原型图'},
+    {n:'02',name:'P2 · 分支隔离',desc:'用 git worktree 创建 feat 分支，编码过程不污染主工作区',cmd:'git worktree add'},
+    {n:'03',name:'P3 · AI 编码',desc:'按 spec 在分支上实现功能，自动注入 AGENTS.md 项目规范',cmd:'traecli exec'},
+    {n:'04',name:'P4 · AI 代码评审',desc:'对分支 diff 自动评审，输出按优先级排序的问题清单',cmd:'traecli review --base main'},
+    {n:'05',name:'P5 · 安全合并',desc:'分支合回 main（--no-ff），保留完整演进历史',cmd:'git merge --no-ff'},
+    {n:'06',name:'P6 · 部署',desc:'在 8010 端口启动业务服务，健康检查确认存活',cmd:'uvicorn + /healthz'},
+    {n:'07',name:'P7 · 测试与报告',desc:'pytest 全量回归，生成汇总报告并归档到历史需求',cmd:'pytest -q'}
+  ];
+
+  function el(t){return document.getElementById(t);}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function showToast(html){
+    var t=el('toast');
+    t.innerHTML=html;
+    t.classList.add('show');
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ t.classList.remove('show'); }, 5000);
+  }
+
+  /* ---------- 输入区 ---------- */
+  req.addEventListener('input',function(){ charCount.textContent=req.value.length+' / 2000'; });
+  fillDemo.addEventListener('click',function(){
+    req.value=DEMO_REQ; charCount.textContent=req.value.length+' / 2000'; req.focus();
+  });
+  attachBtn.addEventListener('click',function(){ imgInput.click(); });
+  imgInput.addEventListener('change',function(){
+    if(imgInput.files && imgInput.files[0]){
+      preview.src=URL.createObjectURL(imgInput.files[0]);
+      attachName.textContent=imgInput.files[0].name;
+      attachChip.style.display='inline-flex'; attachBtn.style.display='none';
+    }
+  });
+  clearImg.addEventListener('click',function(){
+    imgInput.value=''; attachChip.style.display='none'; attachBtn.style.display='inline-block';
+  });
+
+  startBtn.addEventListener('click',function(){
+    if(!req.value.trim()){ req.focus(); req.style.borderColor='var(--fail)';
+      setTimeout(function(){req.style.borderColor='';},1200); return; }
+    startBtn.disabled=true; startBtn.querySelector('span').textContent='流水线运行中…';
+    var fd=new FormData();
+    fd.append('requirement', req.value);
+    if(imgInput.files && imgInput.files[0]) fd.append('image', imgInput.files[0]);
+    fetch('/api/pipeline/start',{method:'POST',body:fd})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(!d.ok){ alert('启动失败：'+(d.error||'未知错误')); syncStartBtn(); }
+        else { viewMode='live'; activePid=null; artifactsLoaded=false; lastTLSig=''; finHandled=false; tick(); markActiveRec(); }
+      })
+      .catch(function(e){ alert('启动失败：'+e); syncStartBtn(); });
+  });
+
+  el('newReqBtn').addEventListener('click',function(){
+    if(lastStatus && lastStatus.status==='running'){ viewMode='live'; renderRun(lastStatus); return; }
+    viewMode='idle'; renderIdle();
+  });
+  el('backLiveBtn').addEventListener('click',function(){
+    viewMode='live'; if(lastStatus) renderRun(lastStatus);
+  });
+
+  el('resumeBtn').addEventListener('click',function(){
+    var pid = viewMode==='archive' ? activePid : (lastStatus && lastStatus.pipeline_id);
+    if(!pid) return;
+    fetch('/api/pipeline/resume/'+encodeURIComponent(pid),{method:'POST'})
+      .then(function(r){ return r.json().then(function(d){ d._status=r.status; return d; }); })
+      .then(function(d){
+        if(!d.ok){ alert('续跑失败：'+(d.error||d.detail||('HTTP '+d._status))); return; }
+        viewMode='live'; activePid=null; artifactsLoaded=false; lastTLSig='';
+        tick(); markActiveRec();
+      })
+      .catch(function(e){ alert('续跑失败：'+e); });
+  });
+
+  el('retryBtn').addEventListener('click',function(){
+    var pid = viewMode==='archive' ? activePid : (lastStatus && lastStatus.pipeline_id);
+    if(!pid) return;
+    if(!confirm('用相同的需求与原型图重新启动一条流水线？')) return;
+    fetch('/api/pipeline/retry/'+encodeURIComponent(pid),{method:'POST'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(!d.ok){ alert('重试失败：'+(d.error||'未知错误')); return; }
+        viewMode='live'; activePid=null; artifactsLoaded=false; lastTLSig='';
+        tick(); markActiveRec();
+      })
+      .catch(function(e){ alert('重试失败：'+e); });
+  });
+
+  /* ---------- 轮询 ---------- */
+  function tick(){
+    fetch('/api/status').then(function(r){return r.json();}).then(function(s){
+      lastStatus=s;
+      renderRunStats();
+      if(viewMode==='live'){
+        if(s && s.phases){
+          renderRun(s);
+          artTick++;
+          if(s.status==='running' && artTick%4===0) fetchArtifacts();  // 运行中渐进拉取已落盘产物
+          if((s.status==='done'||s.status==='failed') && !finHandled){
+            finHandled=true;
+            var finStatus=s.status, finPid=s.pipeline_id;
+            setTimeout(function(){
+              viewMode='idle'; activePid=null; artifactsLoaded=false; lastTLSig='';
+              renderIdle(); loadHistory();
+              showToast(finStatus==='done'
+                ? '流水线 <b>'+esc(finPid)+'</b> 已完成并归档，可在左侧「历史需求」中随时查看详情'
+                : '流水线 <b>'+esc(finPid)+'</b> 执行失败，已归档到「历史需求」，可查看原因或重试');
+            }, 1400);
+          }
+        } else { viewMode='idle'; renderIdle(); }
+      } else if(viewMode==='idle'){
+        if(s && s.status==='running'){ viewMode='live'; artifactsLoaded=false; finHandled=false; renderRun(s); }
+        else { setBadge('idle'); syncStartBtn(); }
+      } else {
+        syncHeader();
+        if(s && s.status==='running') setBadge('running'); else setArchiveBadge();
+      }
+    }).catch(function(){});
+  }
+  setInterval(tick,1500);
+  /* 运行中阶段的秒表：每秒钟面刷新一次（不动 DOM 结构，避免打断 CSS 动画） */
+  setInterval(function(){
+    if(!runPhaseStart) return;
+    var n=document.querySelector('#timeline .ph.running .time');
+    if(n) n.textContent='已运行 '+Math.max(0,Math.round((Date.now()-runPhaseStart)/1000))+'s';
+  },1000);
+
+  function syncStartBtn(){
+    var running=lastStatus && lastStatus.status==='running';
+    startBtn.disabled=!!running;
+    startBtn.querySelector('span').textContent=running?'流水线运行中…':'开始流水线';
+  }
+
+  /* ---------- 徽标 / 头部 ---------- */
+  function setBadge(st){
+    badge.className='pill '+st;
+    var map={idle:'未启动',running:'运行中',done:'已完成',failed:'失败'};
+    badgeText.textContent=map[st]||st;
+  }
+  function setArchiveBadge(){
+    badge.className='pill '+archiveStatus;
+    badgeText.textContent='归档 · '+(archiveStatus==='done'?'已完成':'失败');
+  }
+  function syncHeader(){
+    var tag=el('viewTag'), nb=el('newReqBtn'), bb=el('backLiveBtn'), rt=el('retryBtn'), rs=el('resumeBtn');
+    var running=lastStatus && lastStatus.status==='running';
+    rt.style.display='none'; rs.style.display='none';
+    if(viewMode==='archive'){
+      tag.textContent='历史回看';
+      nb.style.display='inline-block';
+      bb.style.display=running?'inline-block':'none';
+      if(archiveStatus==='failed'){ rt.style.display='inline-block'; rs.style.display='inline-block'; }
+    } else if(viewMode==='live'){
+      var fin=lastStatus && (lastStatus.status==='done'||lastStatus.status==='failed');
+      tag.textContent=fin?'运行完成 · 已归档':'当前运行';
+      nb.style.display=fin?'inline-block':'none';
+      bb.style.display='none';
+      if(lastStatus && lastStatus.status==='failed'){ rt.style.display='inline-block'; rs.style.display='inline-block'; }
+    } else {
+      tag.textContent='新建需求'; nb.style.display='none'; bb.style.display='none';
+    }
+  }
+
+  /* ---------- 时间线 ---------- */
+  function fmtMs(ms){ if(ms==null) return '—'; return (ms/1000).toFixed(1)+'s'; }
+
+  function renderTimeline(phases){
+    var tl=el('timeline');
+    if(!phases || !phases.length){ el('stepbar').style.display='none'; renderGhost(); return; }
+    var sig=JSON.stringify(phases.map(function(p){return [p.status,p.summary,p.duration_ms,p.key===curPhaseKey];}));
+    if(sig===lastTLSig) return;   // 状态未变不重绘，保留 CSS 过渡与动画
+    lastTLSig=sig;
+    /* curPhaseKey 兜底：后端旧版本不打 running 状态时，用 current_phase 推导出运行中阶段 */
+    var doneN=0, rp=null;
+    phases.forEach(function(p){
+      p._st=(curPhaseKey && p.status==='pending' && p.key===curPhaseKey) ? 'running' : p.status;
+      if(p._st==='done') doneN++;
+      if(p._st==='running') rp=p;
+    });
+    el('stepbar').style.display='flex';
+    el('sbFill').style.width=Math.round(doneN/phases.length*100)+'%';
+    el('sbLabel').innerHTML='进度 <b>'+doneN+'/'+phases.length+'</b>'+(rp?' · 当前：'+esc(rp.label):(doneN===phases.length?' · 全部完成':''));
+    var html='';
+    phases.forEach(function(p){
+      var tm=fmtMs(p.duration_ms);
+      if(p._st==='running'){
+        var base=p.started_at||(runPhaseKey===p.key?runPhaseStart:null);
+        tm='已运行 '+(base?Math.max(0,Math.round((Date.now()-base)/1000)):0)+'s';
+      }
+      html+='<div class="ph '+p._st+'">'+
+        '<span class="dot"></span>'+
+        '<span class="name">'+esc(p.label)+'</span>'+
+        '<span class="time">'+tm+'</span>'+
+        '<span class="sum">'+esc(p.summary||'')+'</span></div>';
+    });
+    tl.innerHTML=html;
+    if(rp){
+      if(runPhaseKey!==rp.key){ runPhaseKey=rp.key; runPhaseStart=rp.started_at||Date.now(); }
+      else if(rp.started_at){ runPhaseStart=rp.started_at; }
+    } else { runPhaseKey=''; runPhaseStart=null; }
+    phases.forEach(function(p){ delete p._st; });
+  }
+
+  function renderGhost(){
+    if(lastTLSig==='ghost') return;
+    lastTLSig='ghost';
+    runPhaseKey=''; runPhaseStart=null; curPhaseKey=null;
+    var html='<div class="guide-intro">流水线未启动 · 提交需求后将依次执行以下 <b>8 个阶段</b>，全程真实调用 traecli 与 git</div><div class="guide-grid">';
+    GHOST_PHASES.forEach(function(p){
+      html+='<div class="guide-tile"><div class="g-top"><span class="g-num">'+p.n+'</span><span class="g-name">'+esc(p.name)+'</span></div>'+
+        '<div class="g-desc">'+esc(p.desc)+'</div><code class="g-cmd">'+esc(p.cmd)+'</code></div>';
+    });
+    el('timeline').innerHTML=html+'</div>';
+  }
+
+  function renderLog(s){
+    if(!s || !s.phases){ setPre('panel-log','（运行中实时日志将显示在这里，或等待流水线启动）'); return; }
+    var failed=null;
+    s.phases.forEach(function(p){ if(p.status==='failed' && p.log) failed=p; });
+    if(failed){ setPre('panel-log','【失败阶段】'+failed.label+'\n\n'+failed.log); return; }
+    /* 运行中：由各阶段真实状态合成进展日志 */
+    var lines=[];
+    s.phases.forEach(function(p){
+      var st=(curPhaseKey && p.status==='pending' && p.key===curPhaseKey)?'running':p.status;
+      if(st==='done'){
+        var sum=(p.summary||'').replace(/\s+/g,' ').trim();
+        if(sum.length>500) sum=sum.slice(0,500)+'…';
+        lines.push('✓ '+p.label+'（'+fmtMs(p.duration_ms)+'）'+(sum?'\n  '+sum:''));
+      } else if(st==='running'){
+        var base=p.started_at||(runPhaseKey===p.key?runPhaseStart:null);
+        lines.push('▶ '+p.label+' · 进行中'+(base?'，已运行 '+Math.max(0,Math.round((Date.now()-base)/1000))+'s':'')+'…');
+      } else if(st==='failed'){
+        lines.push('× '+p.label+'：'+(p.summary||'失败'));
+      }
+    });
+    setPre('panel-log', lines.length?lines.join('\n\n'):'（流水线等待启动）');
+  }
+
+  function setPre(panelId, text){
+    var pre=el(panelId).querySelector('pre');
+    if(pre.textContent!==text) pre.textContent=text;
+  }
+
+  function renderMeta(s){
+    if(!s){ meta.textContent=''; return; }
+    var t='pipeline: '+s.pipeline_id+' · 启动 '+(s.started_at||'').replace('T',' ').slice(0,19);
+    if(s.run_dir) t+='\n产物目录: '+s.run_dir;
+    meta.textContent=t;
+  }
+
+  function renderRun(s){
+    setBadge(s.status);
+    curPhaseKey=(s.status==='running') ? (s.current_phase||null) : null;
+    renderTimeline(s.phases);
+    renderMeta(s);
+    renderLog(s);
+    syncHeader();
+    syncStartBtn();
+    if((s.status==='done'||s.status==='failed') && !artifactsLoaded){
+      artifactsLoaded=true; loadArtifacts(); loadHistory();
+    }
+  }
+
+  function renderIdle(){
+    setBadge('idle');
+    renderGhost();
+    renderMeta(null);
+    resetPanels();
+    syncHeader(); syncStartBtn();
+  }
+
+  function resetPanels(){
+    setPre('panel-log','（点击「开始流水线」后，这里会实时展示阶段日志）');
+    setPre('panel-spec','（规划文档：spec / tasks / checklist）');
+    setPre('panel-cr','（AI 代码评审原文）');
+    setPre('panel-test','（pytest 输出）');
+    setPre('panel-deploy','（部署与健康检查信息）');
+    setPre('panel-report','（汇总报告）');
+  }
+
+  /* ---------- 产物 ---------- */
+  /* 运行中/结束后都可用：只填已有内容的 Tab，空内容保留占位文案 */
+  function fetchArtifacts(){
+    fetch('/api/artifacts').then(function(r){return r.json();}).then(function(a){
+      if(viewMode!=='live') return;
+      if(a.spec||a.tasks||a.checklist){
+        setPre('panel-spec', joinSec('📄 实现方案 spec.md',a.spec||'')+joinSec('📋 任务清单 tasks.md',a.tasks||'')+joinSec('✅ 验收清单 checklist.md',a.checklist||''));
+      }
+      if(a.cr) setPre('panel-cr', a.cr);
+      if(a.test) setPre('panel-test', a.test);
+      if(a.health) setPre('panel-deploy', a.health);
+    }).catch(function(){});
+  }
+
+  function loadArtifacts(){
+    fetchArtifacts();
+    fetch('/api/report').then(function(r){return r.json();}).then(function(d){
+      setPre('panel-report', d.report||'（报告生成中）');
+      if(d.health_url){ meta.textContent+=' · 部署: '+d.health_url; }
+    });
+    loadMetrics();
+  }
+
+  function fillPanels(a){
+    setPre('panel-spec', joinSec('📄 实现方案 spec.md',a.spec||'')+joinSec('📋 任务清单 tasks.md',a.tasks||'')+joinSec('✅ 验收清单 checklist.md',a.checklist||''));
+    setPre('panel-cr', a.cr||'（无评审输出）');
+    setPre('panel-test', a.test||'（无测试输出）');
+    setPre('panel-deploy', a.health||'（无部署信息）');
+  }
+  function joinSec(title, content){ return (title+'\n'+'='.repeat(title.length)+'\n'+content+'\n\n'); }
+
+  /* ---------- 效能度量 ---------- */
+  function loadMetrics(){
+    fetch('/api/telemetry').then(function(r){return r.json();}).then(function(d){
+      var box=el('metrics');
+      if(!d.phases.length){ box.innerHTML='<div class="empty-note">暂无运行数据。</div>'; return; }
+      var byPhase={}, order=['init','p0_context','p2_branch','p3_code','p4_cr','p5_merge','p6_deploy','p7_test'];
+      var label={init:'前置',p0_context:'P0-1 上下文',p2_branch:'P2 分支',p3_code:'P3 AI编码',p4_cr:'P4 AI CR',p5_merge:'P5 合并',p6_deploy:'P6 部署',p7_test:'P7 测试'};
+      order.forEach(function(k){byPhase[k]=0;});
+      d.phases.forEach(function(p){ if(p.status==='done'&&byPhase[p.phase]!=null) byPhase[p.phase]+=p.duration_ms||0; });
+      var max=Math.max.apply(null,order.map(function(k){return byPhase[k]||0;}).concat([1]));
+      var html='<div><div class="bars-title">最近 '+d.runs.length+' 次流水线 · 各阶段累计耗时</div>';
+      order.forEach(function(k){
+        var v=byPhase[k]||0, pct=Math.round(v/max*100), top=(v===max&&max>0)?' top':'';
+        html+='<div class="bar-row"><span class="nm">'+label[k]+'</span><div class="bar-track"><div class="bar-fill'+top+'" style="width:'+pct+'%"></div></div><span class="vl">'+(v/1000).toFixed(1)+'s</span></div>';
+      });
+      html+='</div><div><div class="runs-title">阶段明细</div><div class="runs"><table><tr><th>pipeline</th><th>阶段</th><th>结果</th><th>耗时</th></tr>';
+      d.phases.slice(-12).forEach(function(p){
+        html+='<tr><td class="mono">'+esc(p.pipeline_id)+'</td><td>'+esc(p.phase)+'</td><td>'+esc(p.status)+'</td><td class="mono">'+(p.duration_ms/1000).toFixed(1)+'s</td></tr>';
+      });
+      html+='</table></div></div>';
+      box.innerHTML=html;
+    }).catch(function(){});
+  }
+
+  /* ---------- 历史需求 ---------- */
+  var lastHistory=[], runStatsSig='';
+  function renderRunStats(){
+    var c={done:0,failed:0,running:0};
+    lastHistory.forEach(function(i){ if(i.status==='done')c.done++; else if(i.status==='failed')c.failed++; });
+    if(lastStatus && lastStatus.status==='running') c.running++;
+    var total=c.done+c.failed+c.running;
+    var box=el('runStats');
+    if(!total){ box.style.display='none'; runStatsSig=''; return; }
+    var sig=c.done+'/'+c.failed+'/'+c.running;
+    if(sig===runStatsSig) return;
+    runStatsSig=sig;
+    box.style.display='flex';
+    var defs=[['done','var(--ok)','成功',c.done],['failed','var(--fail)','失败',c.failed],['running','var(--amber)','运行中',c.running]];
+    var off=25, svg='';
+    defs.forEach(function(s){
+      if(!s[3]) return;
+      var pct=s[3]/total*100;
+      svg+='<circle class="pie-seg" cx="21" cy="21" r="15.9155" fill="none" style="stroke:'+s[1]+'" stroke-width="7" stroke-dasharray="'+pct.toFixed(2)+' '+(100-pct).toFixed(2)+'" stroke-dashoffset="'+off.toFixed(2)+'"></circle>';
+      off-=pct;
+    });
+    svg+='<text x="21" y="22" text-anchor="middle" class="pie-num">'+total+'</text>';
+    el('runStatsPie').innerHTML=svg;
+    el('runStatsLegend').innerHTML=defs.filter(function(s){return s[3];}).map(function(s){
+      return '<span class="rs-item"><i style="background:'+s[1]+'"></i>'+s[2]+' <b>'+s[3]+'</b></span>';
+    }).join('');
+  }
+
+  function loadHistory(){
+    fetch('/api/history').then(function(r){return r.json();}).then(function(d){
+      var box=el('history');
+      var items=d.items||[];
+      lastHistory=items;
+      renderRunStats();
+      if(!items.length){ box.innerHTML='<div class="empty-note">暂无记录。每次流水线结束后会自动归档到这里。</div>'; return; }
+      var html='';
+      items.forEach(function(it){
+        html+='<div class="rec" data-pid="'+esc(it.pipeline_id)+'">'+
+          '<span class="rec-dot '+(it.status==='done'?'done':'failed')+'"></span>'+
+          '<div class="rec-main"><div class="rec-req">'+esc(it.requirement||'(无需求描述)')+'</div>'+
+          '<div class="rec-meta"><span class="mono">'+esc(it.pipeline_id)+'</span><span>'+fmtTime(it.started_at)+'</span><span>'+fmtDur(it.started_at,it.finished_at)+'</span></div></div>'+
+          '<span class="rec-arrow">→</span></div>';
+      });
+      box.innerHTML=html;
+      box.querySelectorAll('.rec').forEach(function(n){
+        n.addEventListener('click',function(){ openArchive(n.getAttribute('data-pid')); });
+      });
+      markActiveRec();
+    }).catch(function(){});
+  }
+
+  function markActiveRec(){
+    document.querySelectorAll('#history .rec').forEach(function(n){
+      n.classList.toggle('active', viewMode==='archive' && n.getAttribute('data-pid')===activePid);
+    });
+  }
+
+  function fmtTime(iso){ return (iso||'').replace('T',' ').slice(5,16); }
+  function fmtDur(a,b){
+    if(!a||!b) return '';
+    var ms=new Date(b)-new Date(a);
+    if(isNaN(ms)||ms<0) return '';
+    var m=ms/60000;
+    return (m<1?Math.round(ms/1000)+'s':m.toFixed(1)+'min');
+  }
+
+  function openArchive(pid){
+    fetch('/api/history/'+encodeURIComponent(pid)).then(function(r){return r.json();}).then(function(run){
+      if(!run || run.ok===false){ alert('记录不存在'); return; }
+      viewMode='archive'; activePid=pid; archiveStatus=run.status==='done'?'done':'failed';
+      curPhaseKey=null;
+      lastTLSig='';
+      setArchiveBadge();
+      renderTimeline(run.phases||[]);
+      renderMeta(run);
+      var docs=run.archived_docs||{}, art=run.artifacts||{};
+      fillPanels({spec:docs.spec,tasks:docs.tasks,checklist:docs.checklist,cr:art.cr_raw,test:art.test,health:art.health});
+      setPre('panel-report', run.report||'（无报告）');
+      var lp=null, ph=run.phases||[];
+      ph.forEach(function(p){ if(p.status==='failed') lp=p; });
+      if(!lp){ for(var i=ph.length-1;i>=0;i--){ if(ph[i].log){ lp=ph[i]; break; } } }
+      setPre('panel-log', lp && lp.log ? lp.log : '（历史记录：各阶段摘要见上方流水线）');
+      syncHeader(); markActiveRec();
+      el('viewTag').scrollIntoView({behavior:'smooth',block:'nearest'});
+    }).catch(function(){ alert('加载记录失败'); });
+  }
+
+  /* ---------- tabs ---------- */
+  document.querySelectorAll('.tabs button').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.tabs button').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');
+      document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('show');});
+      el('panel-'+b.dataset.tab).classList.add('show');
+    });
+  });
+
+  /* ---------- 初始化 ---------- */
+  renderIdle();
+  tick();
+  loadHistory();
+  loadMetrics();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# 本地运行产物与状态（含本机绝对路径，不入库）
+work/
+pipeline_meta.json
+telemetry.jsonl
+
+# 嵌套示例工程（独立 git 仓库，单独推送）
+demo-repo/
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
