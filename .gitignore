@@ -10,5 +10,8 @@ demo-repo/
 __pycache__/
 *.pyc
 
+# IDE 本地状态
+.trae/
+
 # macOS
 .DS_Store
